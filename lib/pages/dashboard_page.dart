@@ -11,7 +11,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  final _hC = TextEditingController(text: '192.168.123.15');
+  final _hC = TextEditingController(text: '192.168.66.192');
   final _pC = TextEditingController(text: '13145');
   bool _busy = false;
 
@@ -60,13 +60,13 @@ class _DashboardPageState extends State<DashboardPage> {
           gap,
           // 4 leg cards
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: _LegCard(grpc: g, leg: 'FR', base: 0, accent: const Color(0xFF3B82F6))),
-            hg, Expanded(child: _LegCard(grpc: g, leg: 'FL', base: 4, accent: const Color(0xFF10B981))),
+            Expanded(child: _LegCard(grpc: g, leg: 'FR', indices: const [0, 1, 2, 12], accent: const Color(0xFF3B82F6))),
+            hg, Expanded(child: _LegCard(grpc: g, leg: 'FL', indices: const [3, 4, 5, 13], accent: const Color(0xFF10B981))),
           ]),
           gap,
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: _LegCard(grpc: g, leg: 'RR', base: 8, accent: const Color(0xFFF59E0B))),
-            hg, Expanded(child: _LegCard(grpc: g, leg: 'RL', base: 12, accent: const Color(0xFF8B5CF6))),
+            Expanded(child: _LegCard(grpc: g, leg: 'RR', indices: const [6, 7, 8, 14], accent: const Color(0xFFF59E0B))),
+            hg, Expanded(child: _LegCard(grpc: g, leg: 'RL', indices: const [9, 10, 11, 15], accent: const Color(0xFF8B5CF6))),
           ]),
           gap,
           // Camera + 3D
@@ -83,23 +83,47 @@ class _DashboardPageState extends State<DashboardPage> {
   // ── Connection bar ──
   Widget _connBar(BuildContext c, GrpcService g) {
     final cs = Theme.of(c).colorScheme;
+    // Determine connection indicator color based on health
+    Color dotColor;
+    if (g.isReconnecting) {
+      dotColor = AppTheme.orange;
+    } else if (g.connected && g.isStale) {
+      dotColor = AppTheme.orange;
+    } else if (g.connected) {
+      dotColor = AppTheme.green;
+    } else {
+      dotColor = cs.onSurface.withValues(alpha: 0.12);
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
       decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: cs.outline.withValues(alpha: 0.5)), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)]),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         const SizedBox(width: 8),
-        Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: g.connected ? AppTheme.green : cs.onSurface.withValues(alpha: 0.12))),
-        const SizedBox(width: 8),
-        SizedBox(width: 120, child: _inp(c, _hC, 'IP', !g.connected)),
+        Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor)),
+        const SizedBox(width: 4),
+        // Health status label
+        if (g.isReconnecting || (g.connected && g.isStale))
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Text(
+              g.healthStatus,
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AppTheme.orange),
+            ),
+          ),
+        const SizedBox(width: 4),
+        SizedBox(width: 120, child: _inp(c, _hC, 'IP', !g.connected && !g.isReconnecting)),
         const SizedBox(width: 5),
-        SizedBox(width: 56, child: _inp(c, _pC, 'Port', !g.connected)),
+        SizedBox(width: 56, child: _inp(c, _pC, 'Port', !g.connected && !g.isReconnecting)),
         const SizedBox(width: 5),
         _ConnBtn(
-          label: g.connected ? 'Disconnect' : 'Connect',
-          filled: !g.connected,
+          label: g.connected ? 'Disconnect' : (g.isReconnecting ? 'Cancel' : 'Connect'),
+          filled: !g.connected && !g.isReconnecting,
           onTap: g.connected
               ? () { widget.grpc.disconnect(); AppToast.showSuccess(context, '已断开'); }
-              : (_busy ? null : _connect),
+              : g.isReconnecting
+                  ? () { widget.grpc.disconnect(); AppToast.showSuccess(context, '已取消重连'); }
+                  : (_busy ? null : _connect),
         ),
       ]),
     );
@@ -160,7 +184,7 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Text('SYSTEM', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: cs.onSurface.withValues(alpha: 0.3), letterSpacing: 0.5)),
             const SizedBox(width: 8),
-            Text(g.params?.robot.type.name ?? '--', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: cs.onSurface)),
+            Text(g.params != null && g.params!.hasRobot() ? g.params!.robot.type.name : '--', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: cs.onSurface)),
             const SizedBox(width: 8),
             Icon(Icons.smart_toy_rounded, size: 14, color: cs.onSurface.withValues(alpha: 0.3)),
           ]),
@@ -274,8 +298,8 @@ class _StatCardState extends State<_StatCard> {
 // Leg Card with hover
 // ══════════════════════════════════════
 class _LegCard extends StatefulWidget {
-  final GrpcService grpc; final String leg; final int base; final Color accent;
-  const _LegCard({required this.grpc, required this.leg, required this.base, required this.accent});
+  final GrpcService grpc; final String leg; final List<int> indices; final Color accent;
+  const _LegCard({required this.grpc, required this.leg, required this.indices, required this.accent});
   @override State<_LegCard> createState() => _LegCardState();
 }
 class _LegCardState extends State<_LegCard> {
@@ -323,7 +347,7 @@ class _LegCardState extends State<_LegCard> {
           ]),
           const SizedBox(height: 4),
           ...List.generate(4, (ji) {
-            final idx = widget.base + ji;
+            final idx = widget.indices[ji];
             final pos = j != null && j.position.values.length > idx ? j.position.values[idx] : 0.0;
             final vel = j != null && j.velocity.values.length > idx ? j.velocity.values[idx] : 0.0;
             final trq = j != null && j.torque.values.length > idx ? j.torque.values[idx] : 0.0;

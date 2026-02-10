@@ -232,19 +232,18 @@ class _MonitorPageState extends State<MonitorPage> {
     const joints = ['Hip', 'Thigh', 'Calf'];
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border(
-          left: BorderSide(color: accent, width: 4),
-          top: BorderSide(color: cs.outline.withValues(alpha: 0.5), width: 1),
-          right: BorderSide(color: cs.outline.withValues(alpha: 0.5), width: 1),
-          bottom: BorderSide(color: cs.outline.withValues(alpha: 0.5), width: 1),
-        ),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.5), width: 1),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Row(children: [
+        Container(width: 4, color: accent),
+        Expanded(child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Header
         Row(children: [
           Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: accent)),
@@ -289,6 +288,8 @@ class _MonitorPageState extends State<MonitorPage> {
             ]),
           );
         }),
+      ]),
+        )),
       ]),
     );
   }
